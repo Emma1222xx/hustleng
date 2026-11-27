@@ -1,8 +1,9 @@
 FROM node:22-bookworm-slim
 WORKDIR /app
+COPY package.json ./
+RUN npm install --omit=dev
 COPY --chown=node:node . .
-RUN mkdir -p /app/data && chown node:node /app/data
 USER node
-ENV PORT=3000 DATA_DIR=/app/data
+ENV PORT=3000
 EXPOSE 3000
 CMD ["node","server.mjs"]

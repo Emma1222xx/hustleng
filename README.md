@@ -1,56 +1,40 @@
-# HustleNG v1.0.0 — controlled beta
+# HustleNG v1.1.0 — Netlify beta
 
-Small Tasks. Real Money. Nigeria-first micro-work marketplace. Free joining and zero platform commission in beta. This is a working, server-rendered Node.js + SQLite pilot, **not an automatically paying or public-launch-ready financial service**. No paid listings or fake earnings are seeded. Illustrative task cards are explicitly marked as examples.
+Small Tasks. Real Money. Nigeria-first micro-work marketplace. Registration and beta platform commission are free. This is a controlled pilot, not a bank or guaranteed-income service.
 
-## Quick start
+## Deploy on Netlify
 
-Requires Node.js 22.13+ (Node's built-in SQLite module); no npm dependencies.
+1. Open https://app.netlify.com/start and import the existing GitHub repository `Emma1222xx/hustleng`, branch `main`.
+2. Keep the repository root as the base directory. `netlify.toml` sets the build command, publish directory (`public`) and Functions directory. Do not deploy this as a static ZIP.
+3. In the Netlify project, open **Data & Storage → Database** and create a PostgreSQL database. Native Netlify Database requires an eligible credit-based plan. If unavailable, provision PostgreSQL elsewhere (e.g. Neon) and set the secret `DATABASE_URL` in Netlify's environment variables with Functions scope. Use the provider's TLS connection URL. Netlify Database automatically exposes `NETLIFY_DB_URL`; the app accepts either variable, preferring Netlify's.
+4. Before opening registration, set secret Functions environment variables `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 14 characters, unique and strong). Set production scope only. These are not committed. Database tables and the first administrator are created automatically on the first successful database-backed request. After confirming admin login, remove the bootstrap password from Netlify and redeploy. Removing it does not delete the account. An existing non-admin email is never promoted.
+5. Trigger a new deploy after setting variables. Open the assigned Netlify URL. Check `/health` for HTTP 200 and `{"ok":true}`, sign in with the administrator, and visit `/admin`. A database setup problem produces a 503 rather than a fake working marketplace.
+6. Test the full workflow using private beta participants: employer posts, operator verifies real funding and approves listing, worker claims and submits, employer reviews, worker requests payout, operator records an independently confirmed external payment. Check that simultaneous claims cannot overfill a task.
+
+## Architecture
+
+Netlify Functions (modern Request/Response handler), Node.js 22, PostgreSQL via pg, existing server-rendered HTML/CSS/JS served with static assets on Netlify CDN. User accounts, sessions, tasks, submissions, reports, audit history and payout references persist in PostgreSQL. Database-backed rate limiting and PostgreSQL transaction advisory locking coordinate multiple function instances. Existing pages, search, WhatsApp sharing, permissions and manual payout rules are retained. No real payment gateway is connected.
+
+## Local development
+
+Install Node.js 22+ and provision a disposable PostgreSQL database. Copy `.env.example` into `.env`, fill its values and run:
 
 ```sh
-cp .env.example .env
-# Edit .env: set ADMIN_EMAIL, a unique ADMIN_PASSWORD of at least 14 characters
-node --env-file=.env server.mjs
-# Open http://localhost:3000
+npm install
+npm run check
 npm test
+node --env-file=.env server.mjs
 ```
 
-Admin is bootstrapped only if the email is not already registered. Remove ADMIN_PASSWORD from the environment after first boot. A single normal account can act as worker and employer. Never share admin credentials.
+Open http://localhost:3000. For Docker, supply the same environment variables and use an external PostgreSQL server. Do not expose or commit secrets. Local data is not migrated from SQLite automatically; the original V1 is available in Git history. If an existing V1 deployment contains real records, export and migrate them separately before switching hosts.
 
-## Pilot workflow
+## Launch checklist
 
-1. Register employer and worker accounts.
-2. Employer creates a task (category, instructions, proof, reward, slots, deadline).
-3. Operator reviews rules and independently verifies full external funding; admin enters a unique verified reference to publish. No payment is taken by the website.
-4. Worker claims one slot, completes work and submits original text or URL proof; employer reviews and explains rejections.
-5. Worker may appeal; admin resolves. Approved rewards are recorded as amounts owed.
-6. Worker requests payout. Operator verifies recipient details securely outside the app, completes payment using an approved method, and records its unique confirmed reference. Do not mark a payment paid from a screenshot alone.
+- The default database is empty, except the bootstrap admin. Illustrative listings are explicitly not jobs.
+- Test database-backed account registration, authorization, simultaneous claims, review, appeals and manual payout recording in the deployed environment. The included tests cover SQL parameter conversion and the Netlify HTTP adapter, not the live database workflow.
+- Keep the site private or restricted during pilot; configure verified support, privacy terms, retention and operational controls.
+- Configure verified business funding, bank payout procedures, backups and monitoring. Never mark a transfer settled before confirming it externally.
+- Email verification, password recovery, automated bank payments and an independent security review remain required before public launch.
+- Review database plan costs, preview data isolation and Netlify usage limits. Never place production credentials in preview environments.
 
-The server enforces authorisation, unique task claims, slot caps in a transaction, valid state transitions, unique funding/payment references, CSRF, hashed passwords, hashed session tokens, secure cookies on HTTPS, basic rate limiting, escaped content, security headers, and an admin action log. Automated tests exercise workflow, claim concurrency, XSS escaping, unauthorised actions, duplicate payout and CSRF. This is not a full penetration test.
-
-## Deployment
-
-Use a persistent Node host or VPS, not GitHub Pages or Netlify static hosting. Dockerfile included. Mount persistent `/app/data`, set `PUBLIC_ORIGIN` to the exact public HTTPS origin, set admin bootstrap variables securely, and configure HTTPS reverse proxy. A single Node instance is intended; don't run multiple replicas with independent database files. Back up SQLite safely (including WAL, using SQLite backup or a consistent snapshot). Don't commit `.env`, database files or real personal data. Health endpoint: `/health`.
-
-Create a new private GitHub repo `hustleng` and upload the contents of this folder. The source contains no real credentials or test user data. Deployment is not included in a GitHub upload.
-
-## Growth features included
-
-Responsive lightweight pages, public task browsing without registration, search/category/reward/time filters, per-task share links and WhatsApp sharing, crawlable server-rendered HTML, robots.txt, sitemap for available tasks, category copy, and no fabricated testimonials or counters. Google JobPosting markup intentionally omitted: microtasks should not be misrepresented as conventional employment. Add accurate structured data only if eligibility is established.
-
-## Before any public launch
-
-- Establish actual operator identity, verified support channel, data retention/deletion procedures, privacy notice and reviewed Nigerian legal/compliance requirements. The included privacy/beta terms are a placeholder for a controlled pilot.
-- Add email ownership verification, secure password reset, admin MFA, account recovery, identity and employer verification appropriate to risk, abuse controls, and reliable support. Login rate limits are in-memory and IP-based; configure proxy-aware distributed controls for public deployment.
-- Establish a permitted funding and payout model with a regulated provider; verify Nigerian payment and data-protection obligations, reconciliation, refunds, abandoned jobs, employer review time limits, payout failures and disputes. V1 records external payments manually; no live API or bank information collection. Do not market it as an escrow or wallet.
-- Add server-side provider integration (e.g. Paystack, subject to approval): verify signed webhooks and transaction amount/currency/reference; use idempotent event handling, unique transfer references, reconciliation and reversal handling. Never trust browser callbacks alone. Keep secrets on the server.
-- Add private file proof storage, malware scanning, duplicate proof detection, task expiration and claim-release automation, email alerts, pagination beyond the first 100 listings, accessibility/security/load tests, backups and incident handling. V1 supports text/URL proof and manual operations; dates use UTC.
-- Seed genuine business-funded jobs first, then pilot with a limited group. Track task supply, claim-to-approval, payout completion, repeat visits and organic shares. No promise of earnings without real work.
-- Brand name/domain/trademark clearance is not yet performed. Set a proper public origin before indexing; keep the pilot access-restricted until ready.
-
-## Research references
-
-- [Microtask Nigeria](https://microtask.ng/)
-- [Microworker](https://microworker.app/)
-- [SproutGigs proof integrity](https://sproutgigs.com/proof-integrity-standards.php)
-- [Paystack webhooks](https://paystack.com/docs/payments/webhooks/), [transfer docs](https://paystack.com/docs/transfers/single-transfers/)
-- [Google job posting structured data](https://developers.google.com/search/docs/appearance/structured-data/job-posting)
+Official docs: https://docs.netlify.com/build/functions/configuration/ and https://docs.netlify.com/build/data-and-storage/netlify-database/tooling/
